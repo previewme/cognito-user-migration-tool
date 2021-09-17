@@ -50,10 +50,6 @@ function generateUserAttributes(oldUser: AdminGetUserCommandOutput) {
 }
 
 export async function handler(event: UserMigrationTriggerEvent): Promise<UserMigrationTriggerEvent> {
-    if (!(event.triggerSource === 'UserMigration_Authentication' || event.triggerSource === 'UserMigration_ForgotPassword')){
-        throw Error('Bad triggerSource');
-    }
-
     const oldUser = await getOldUser(event);
     if (oldUser) {
         event.response.userAttributes = generateUserAttributes(oldUser);

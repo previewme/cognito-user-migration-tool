@@ -1,7 +1,7 @@
 import { handler } from '../src';
 import { migrateUserLambdaTriggerEvent } from './resources/migrate-user-lambda-trigger-event';
-import { adminGetUserCommandParams } from './resources/admin-get-user-command-params';
 import { UserMigrationTriggerEvent } from 'aws-lambda';
+
 let mockSendAdminGetUserCommand = jest.fn();
 let mockSendAssumeRoleCommand = jest.fn();
 
@@ -43,25 +43,27 @@ describe('Test migrating user', () => {
         });
 
         mockSendAdminGetUserCommand = jest.fn(() => {
-            return adminGetUserCommandParams([
-                {
-                    Name: 'custom:previewme_user_id',
-                    Value: 'test-previewme-user-id'
-                },
-                {
-                    Name: 'email',
-                    Value: 'test-email'
-                },
-                {
-                    Name: 'email_verified',
-                    Value: 'true'
-                }
-            ]);
+            return {
+                UserAttributes: [
+                    {
+                        Name: 'custom:previewme_user_id',
+                        Value: 'test-previewme-user-id'
+                    },
+                    {
+                        Name: 'email',
+                        Value: 'test-email'
+                    },
+                    {
+                        Name: 'email_verified',
+                        Value: 'true'
+                    }
+                ]
+            };
         });
     });
 
     test('Allow old user attributes to be added to a new user on authentication', async () => {
-        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication') as UserMigrationTriggerEvent);
+        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication'));
         expect(event.response.userAttributes['custom:previewme_user_id']).toEqual('test-previewme-user-id');
         expect(event.response.userAttributes['email']).toEqual('test-email');
         expect(event.response.userAttributes['email_verified']).toEqual('true');
@@ -70,7 +72,7 @@ describe('Test migrating user', () => {
     });
 
     test('Allow old user attributes to be added to a new user on forget password', async () => {
-        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_ForgotPassword') as UserMigrationTriggerEvent);
+        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_ForgotPassword'));
         expect(event.response.userAttributes['custom:previewme_user_id']).toEqual('test-previewme-user-id');
         expect(event.response.userAttributes['email']).toEqual('test-email');
         expect(event.response.userAttributes['email_verified']).toEqual('true');
@@ -78,30 +80,7 @@ describe('Test migrating user', () => {
         expect(event.response.finalUserStatus).toEqual(undefined);
     });
 
-    test('Throw error if trigger source is invalid', async () => {
-        await expect(handler(migrateUserLambdaTriggerEvent('Invalid_TriggerSource') as UserMigrationTriggerEvent)).rejects.toThrow(
-            'Bad triggerSource'
-        );
-    });
-
     test('Throw error when role cannot be assumed', async () => {
-        mockSendAdminGetUserCommand = jest.fn(() => {
-            return adminGetUserCommandParams([
-                {
-                    Name: 'custom:previewme_user_id',
-                    Value: 'test-previewme-user-id'
-                },
-                {
-                    Name: 'email',
-                    Value: 'test-email'
-                },
-                {
-                    Name: 'email_verified',
-                    Value: 'true'
-                }
-            ]);
-        });
-
         mockSendAssumeRoleCommand = jest.fn(() => {
             return {
                 Credentials: undefined
@@ -125,7 +104,9 @@ describe('Test migrating user', () => {
 
     test('New user should have no user attributes if the old user doesnt', async () => {
         mockSendAdminGetUserCommand = jest.fn(() => {
-            return adminGetUserCommandParams(undefined);
+            return {
+                UserAttributes: undefined
+            };
         });
 
         const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication') as UserMigrationTriggerEvent);
@@ -136,22 +117,24 @@ describe('Test migrating user', () => {
 
     test('Only user attributes with the correct format are transferred', async () => {
         mockSendAdminGetUserCommand = jest.fn(() => {
-            return adminGetUserCommandParams([
-                {
-                    Value: 'invalid'
-                },
-                {
-                    Name: 'invalid'
-                },
-                {
-                    InvalidName: 'invalid',
-                    Value: 'invalid'
-                },
-                {
-                    Name: 'invalid',
-                    InvalidValid: 'invalid'
-                }
-            ]);
+            return {
+                UserAttributes: [
+                    {
+                        Value: 'invalid'
+                    },
+                    {
+                        Name: 'invalid'
+                    },
+                    {
+                        InvalidName: 'invalid',
+                        Value: 'invalid'
+                    },
+                    {
+                        Name: 'invalid',
+                        InvalidValid: 'invalid'
+                    }
+                ]
+            };
         });
 
         const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication') as UserMigrationTriggerEvent);

@@ -1,4 +1,8 @@
-export function migrateUserLambdaTriggerEvent(triggerSource: string) {
+import { UserMigrationTriggerEvent } from 'aws-lambda';
+
+export function migrateUserLambdaTriggerEvent(
+    triggerSource: 'UserMigration_Authentication' | 'UserMigration_ForgotPassword'
+): UserMigrationTriggerEvent {
     return {
         version: 'string',
         triggerSource: triggerSource,
@@ -27,4 +31,4 @@ export function migrateUserLambdaTriggerEvent(triggerSource: string) {
             forceAliasCreation: true
         }
     };
-};
+}
