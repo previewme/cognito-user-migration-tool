@@ -1,0 +1,26 @@
+{
+    "version": "string",
+    "triggerSource": "UserMigration_Authentication",
+    "region": "AWSRegion",
+    "userPoolId": "string",
+    "userName": "string",
+    "callerContext": {
+        "awsSdkVersion": "string",
+        "clientId": "string"
+    },
+    "request": {
+        "password": "string",
+        "validationData": {
+            "string": "string"
+        },
+        "clientMetadata": {
+            "string": "string"
+        }
+    },
+    "response": {
+        "userAttributes": {},
+        "messageAction": "RESEND",
+        "desiredDeliveryMediums": [],
+        "forceAliasCreation": true
+    }
+}

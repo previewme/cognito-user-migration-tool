@@ -1,7 +1,10 @@
 import { handler } from '../src';
-import { migrateUserLambdaTriggerEvent } from './resources/migrate-user-lambda-trigger-event';
+import { default as userMigrationAuthenticationEvent } from './resources/user-migration-authentication-event.json';
+import { default as userMigrationForgotPasswordEvent } from './resources/user-migration-forgot-password-event.json';
 import { UserMigrationTriggerEvent } from 'aws-lambda';
 
+const authenticationUserMigrationEvent: UserMigrationTriggerEvent = userMigrationAuthenticationEvent as UserMigrationTriggerEvent;
+const forgotPasswordUserMigrationEvent: UserMigrationTriggerEvent = userMigrationForgotPasswordEvent as UserMigrationTriggerEvent;
 let mockSendAdminGetUserCommand = jest.fn();
 let mockSendAssumeRoleCommand = jest.fn();
 
@@ -63,7 +66,7 @@ describe('Test migrating user', () => {
     });
 
     test('Allow old user attributes to be added to a new user on authentication', async () => {
-        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication'));
+        const event = await handler(authenticationUserMigrationEvent);
         expect(event.response.userAttributes['custom:previewme_user_id']).toEqual('test-previewme-user-id');
         expect(event.response.userAttributes['email']).toEqual('test-email');
         expect(event.response.userAttributes['email_verified']).toEqual('true');
@@ -72,7 +75,7 @@ describe('Test migrating user', () => {
     });
 
     test('Allow old user attributes to be added to a new user on forget password', async () => {
-        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_ForgotPassword'));
+        const event = await handler(forgotPasswordUserMigrationEvent);
         expect(event.response.userAttributes['custom:previewme_user_id']).toEqual('test-previewme-user-id');
         expect(event.response.userAttributes['email']).toEqual('test-email');
         expect(event.response.userAttributes['email_verified']).toEqual('true');
@@ -87,9 +90,7 @@ describe('Test migrating user', () => {
             };
         });
 
-        await expect(handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication') as UserMigrationTriggerEvent)).rejects.toThrow(
-            'Could not assume role'
-        );
+        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Could not assume role');
     });
 
     test('Throw error when old user doesnt exist', async () => {
@@ -97,9 +98,7 @@ describe('Test migrating user', () => {
             return undefined;
         });
 
-        await expect(handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication') as UserMigrationTriggerEvent)).rejects.toThrow(
-            'Bad password'
-        );
+        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Bad password');
     });
 
     test('New user should have no user attributes if the old user doesnt', async () => {
@@ -109,7 +108,7 @@ describe('Test migrating user', () => {
             };
         });
 
-        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication') as UserMigrationTriggerEvent);
+        const event = await handler(authenticationUserMigrationEvent);
         expect(event.response.userAttributes).toEqual({});
         expect(event.response.messageAction).toEqual('SUPPRESS');
         expect(event.response.finalUserStatus).toEqual('CONFIRMED');
@@ -137,7 +136,7 @@ describe('Test migrating user', () => {
             };
         });
 
-        const event = await handler(migrateUserLambdaTriggerEvent('UserMigration_Authentication') as UserMigrationTriggerEvent);
+        const event = await handler(authenticationUserMigrationEvent);
         expect(event.response.userAttributes).toEqual({});
         expect(event.response.messageAction).toEqual('SUPPRESS');
         expect(event.response.finalUserStatus).toEqual('CONFIRMED');
