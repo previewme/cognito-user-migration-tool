@@ -1,33 +1,19 @@
-# typescript-lambda
+# cognito-user-migration-tool 
 
-[![CI Workflow](https://github.com/previewme/lambda-typescript/actions/workflows/ci.yml/badge.svg)](https://github.com/previewme/lambda-typescript/actions/workflows/ci.yml)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=previewme_lambda-typescript&metric=coverage)](https://sonarcloud.io/dashboard?id=previewme_lambda-typescript)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=previewme_lambda-typescript&metric=vulnerabilities)](https://sonarcloud.io/dashboard?id=previewme_lambda-typescript)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=previewme_lambda-typescript&metric=alert_status)](https://sonarcloud.io/dashboard?id=previewme_lambda-typescript)
+Lambda function which automatically migrates a user from the current user pool to a new user pool when the user tries to log in or tries to replace their password
 
-This is a template repository for creating typescript lambda projects.
 
-After cloning this template, the following steps need to be carried out:
+## Configuration
 
-1. Add the project to sonarcloud.
-2. The following files need to be modified to suit your project.
-3. Update the sonarcloud badges
+### Environment variables
 
-### package.json
-
-* name
-* version
-* repository  
-* description
-* license
-
-### sonar-project.properties
-
-* sonar.projectKey
-* sonar.links.homepage
-* sonar.links.ci
-* sonar.links.scm
-* sonar.links.issue
+| Environment Variable | Description | Required |
+| --- | --- | --- |
+| OLD_USER_POOL_ID | ID of the user's current user pool | Yes |
+| OLD_AWS_ACCOUNT_ID | ID of the user's current aws account | Yes |
+| OLD_ASSUME_ROLE_NAME | Name of the role to assume to access the current user | Yes |
+| OLD_REGION | Region of the user's current aws account | Yes |
+| NEW_REGION | Region of the user's new aws account | Yes |
 
 ## Build
 
