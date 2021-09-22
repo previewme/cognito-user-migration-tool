@@ -4,6 +4,7 @@ const oldUserPoolId = process.env.OLD_USER_POOL_ID;
 const oldRegion = process.env.OLD_REGION;
 
 async function getOldUser(event: UserMigrationTriggerEvent): Promise<AdminGetUserCommandOutput> {
+    console.log('Getting user from userpool: ' + oldUserPoolId);
     const params = {
         UserPoolId: oldUserPoolId,
         Username: event.userName
@@ -28,6 +29,7 @@ function generateUserAttributes(oldUser: AdminGetUserCommandOutput) {
 }
 
 export async function handler(event: UserMigrationTriggerEvent): Promise<UserMigrationTriggerEvent> {
+    console.log('Received event ', event);
     const oldUser = await getOldUser(event);
     if (oldUser) {
         event.response.userAttributes = generateUserAttributes(oldUser);
