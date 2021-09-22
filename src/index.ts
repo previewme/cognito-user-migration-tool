@@ -1,31 +1,9 @@
 import { UserMigrationTriggerEvent } from 'aws-lambda';
 import { AdminGetUserCommand, AdminGetUserCommandOutput, CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
-import { AssumeRoleCommand, AssumeRoleResponse, STSClient } from '@aws-sdk/client-sts';
-
 const oldUserPoolId = process.env.OLD_USER_POOL_ID;
-const oldAwsAccountId = process.env.OLD_AWS_ACCOUNT_ID;
-const oldAssumeRoleName = process.env.OLD_ASSUME_ROLE_NAME;
 const oldRegion = process.env.OLD_REGION;
-const newRegion = process.env.NEW_REGION;
-
-export async function getSecurityToken(): Promise<AssumeRoleResponse> {
-    const stsClient = new STSClient({ region: newRegion });
-
-    const params = {
-        RoleArn: `arn:aws:iam::${oldAwsAccountId}:role/${oldAssumeRoleName}`,
-        RoleSessionName: `migrate-user-lambda`
-    };
-
-    const assumeRoleCommand = new AssumeRoleCommand(params);
-    return await stsClient.send(assumeRoleCommand);
-}
 
 async function getOldUser(event: UserMigrationTriggerEvent): Promise<AdminGetUserCommandOutput> {
-    const assumeRole = await getSecurityToken();
-    if (assumeRole.Credentials === undefined) {
-        throw Error('Could not assume role');
-    }
-
     const params = {
         UserPoolId: oldUserPoolId,
         Username: event.userName
@@ -64,3 +42,5 @@ export async function handler(event: UserMigrationTriggerEvent): Promise<UserMig
 
     return event;
 }
+
+exports.handler = handler;

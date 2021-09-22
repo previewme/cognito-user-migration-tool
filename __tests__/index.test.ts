@@ -10,9 +10,6 @@ let mockSendAssumeRoleCommand = jest.fn();
 
 jest.mock('@aws-sdk/client-sts', () => {
     return {
-        STSClient: jest.fn(() => {
-            return { send: mockSendAssumeRoleCommand };
-        }),
         AssumeRoleCommand: jest.fn(() => {
             return {};
         })
@@ -81,16 +78,6 @@ describe('Test migrating user', () => {
         expect(event.response.userAttributes['email_verified']).toEqual('true');
         expect(event.response.messageAction).toEqual('SUPPRESS');
         expect(event.response.finalUserStatus).toEqual(undefined);
-    });
-
-    test('Throw error when role cannot be assumed', async () => {
-        mockSendAssumeRoleCommand = jest.fn(() => {
-            return {
-                Credentials: undefined
-            };
-        });
-
-        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Could not assume role');
     });
 
     test('Throw error when old user doesnt exist', async () => {
