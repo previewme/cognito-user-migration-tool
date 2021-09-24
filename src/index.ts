@@ -1,36 +1,38 @@
 import { UserMigrationTriggerEvent } from 'aws-lambda';
-import { AdminGetUserCommand, AdminGetUserCommandOutput, CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
-const oldUserPoolId = process.env.OLD_USER_POOL_ID;
-const oldRegion = process.env.OLD_REGION;
+import { CognitoIdentityProviderClient, ListUsersCommand, UserType } from '@aws-sdk/client-cognito-identity-provider';
 
-async function getOldUser(event: UserMigrationTriggerEvent): Promise<AdminGetUserCommandOutput> {
-    console.log('Getting user from userpool: ' + oldUserPoolId);
+async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | undefined> {
     const params = {
-        UserPoolId: oldUserPoolId,
-        Username: event.userName
+        UserPoolId: process.env.OLD_USER_POOL_ID,
+        Filter: `email = "${event.userName}"`
     };
 
-    const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({ region: oldRegion });
-    const adminGetUserCommand = new AdminGetUserCommand(params);
-    return await cognitoIdentityProviderClient.send(adminGetUserCommand);
+    const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({ region: process.env.OLD_REGION });
+    const listUserCommand = new ListUsersCommand(params);
+    const usersByEmail = await cognitoIdentityProviderClient.send(listUserCommand);
+    return usersByEmail.Users && usersByEmail.Users.length > 0 ? usersByEmail.Users[0] : undefined;
 }
 
-function generateUserAttributes(oldUser: AdminGetUserCommandOutput) {
+function generateUserAttributes(oldUser: UserType) {
     const userAttributesMap = new Map();
-    if (oldUser.UserAttributes) {
-        oldUser.UserAttributes.forEach((userAttribute) => {
-            if (userAttribute.Name && userAttribute.Value) {
+    const attributesToMigrate = process.env.ATTRIBUTES_TO_MIGRATES;
+
+    if (oldUser.Attributes && attributesToMigrate) {
+        const attributesToMigrateArray = attributesToMigrate.split(',');
+        oldUser.Attributes.forEach((userAttribute) => {
+            if (userAttribute.Name && userAttribute.Value && attributesToMigrateArray.includes(userAttribute.Name)) {
                 userAttributesMap.set(userAttribute.Name, userAttribute.Value);
             }
         });
     }
 
+    userAttributesMap.set('email_verified', 'true');
     return Object.fromEntries(userAttributesMap);
 }
 
 export async function handler(event: UserMigrationTriggerEvent): Promise<UserMigrationTriggerEvent> {
-    console.log('Received event ', event);
     const oldUser = await getOldUser(event);
+
     if (oldUser) {
         event.response.userAttributes = generateUserAttributes(oldUser);
         event.response.messageAction = 'SUPPRESS';

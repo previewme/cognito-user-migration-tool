@@ -5,57 +5,38 @@ import { UserMigrationTriggerEvent } from 'aws-lambda';
 
 const authenticationUserMigrationEvent: UserMigrationTriggerEvent = userMigrationAuthenticationEvent as UserMigrationTriggerEvent;
 const forgotPasswordUserMigrationEvent: UserMigrationTriggerEvent = userMigrationForgotPasswordEvent as UserMigrationTriggerEvent;
-let mockSendAdminGetUserCommand = jest.fn();
-let mockSendAssumeRoleCommand = jest.fn();
-
-jest.mock('@aws-sdk/client-sts', () => {
-    return {
-        AssumeRoleCommand: jest.fn(() => {
-            return {};
-        })
-    };
-});
+let mockSendListUsersCommand = jest.fn();
 
 jest.mock('@aws-sdk/client-cognito-identity-provider', () => {
     return {
         CognitoIdentityProviderClient: jest.fn(() => {
-            return { send: mockSendAdminGetUserCommand };
+            return { send: mockSendListUsersCommand };
         }),
-        AdminGetUserCommand: jest.fn(() => {
+        ListUsersCommand: jest.fn(() => {
             return {};
         })
     };
 });
 
 describe('Test migrating user', () => {
-    process.env.OLD_USER_POOL_ID = 'old-user-pool-id';
-    process.env.OLD_ASSUME_ROLE_NAME = 'old-assume-role-name';
-    process.env.NEW_REGION = 'new-origin';
-
     beforeEach(() => {
         jest.clearAllMocks();
         jest.resetModules();
-
-        mockSendAssumeRoleCommand = jest.fn(() => {
+        process.env.ATTRIBUTES_TO_MIGRATES = 'custom:previewme_user_id,email';
+        mockSendListUsersCommand = jest.fn(() => {
             return {
-                Credentials: 'mock-credentials'
-            };
-        });
-
-        mockSendAdminGetUserCommand = jest.fn(() => {
-            return {
-                UserAttributes: [
+                Users: [
                     {
-                        Name: 'custom:previewme_user_id',
-                        Value: 'test-previewme-user-id'
-                    },
-                    {
-                        Name: 'email',
-                        Value: 'test-email'
-                    },
-                    {
-                        Name: 'email_verified',
-                        Value: 'true'
+                        Attributes: [
+                            {
+                                Name: 'custom:previewme_user_id',
+                                Value: 'test-previewme-user-id'
+                            },
+                            {
+                                Name: 'email',
+                                Value: 'test-email'
+                            }
+                        ]
                     }
                 ]
             };
@@ -81,50 +62,73 @@ describe('Test migrating user', () => {
     });
 
     test('Throw error when old user doesnt exist', async () => {
-        mockSendAdminGetUserCommand = jest.fn(() => {
-            return undefined;
+        mockSendListUsersCommand = jest.fn(() => {
+            return {
+                Users: []
+            };
         });
 
         await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Bad password');
     });
 
-    test('New user should have no user attributes if the old user doesnt', async () => {
-        mockSendAdminGetUserCommand = jest.fn(() => {
-            return {
-                UserAttributes: undefined
-            };
-        });
-
+    test('No attributes to migrate', async () => {
+        delete process.env.ATTRIBUTES_TO_MIGRATES;
         const event = await handler(authenticationUserMigrationEvent);
-        expect(event.response.userAttributes).toEqual({});
+        expect(event.response.userAttributes['email_verified']).toEqual('true');
         expect(event.response.messageAction).toEqual('SUPPRESS');
         expect(event.response.finalUserStatus).toEqual('CONFIRMED');
     });
 
-    test('Only user attributes with the correct format are transferred', async () => {
-        mockSendAdminGetUserCommand = jest.fn(() => {
+    test('Only transfer intended attributes', async () => {
+        mockSendListUsersCommand = jest.fn(() => {
             return {
-                UserAttributes: [
+                Users: [
                     {
-                        Value: 'invalid'
-                    },
-                    {
-                        Name: 'invalid'
-                    },
-                    {
-                        InvalidName: 'invalid',
-                        Value: 'invalid'
-                    },
-                    {
-                        Name: 'invalid',
-                        InvalidValid: 'invalid'
+                        Attributes: [
+                            {
+                                Name: 'invalid-name',
+                                Value: 'test-previewme-user-id'
+                            },
+                            {
+                                Name: 'email',
+                                Value: 'test-email'
+                            }
+                        ]
                     }
                 ]
             };
         });
 
         const event = await handler(authenticationUserMigrationEvent);
-        expect(event.response.userAttributes).toEqual({});
+        expect(event.response.userAttributes['invalid-name']).toEqual(undefined);
+        expect(event.response.userAttributes['email']).toEqual('test-email');
+        expect(event.response.userAttributes['email_verified']).toEqual('true');
+        expect(event.response.messageAction).toEqual('SUPPRESS');
+        expect(event.response.finalUserStatus).toEqual('CONFIRMED');
+    });
+
+    test('Only transfer attributes if the format is correct', async () => {
+        mockSendListUsersCommand = jest.fn(() => {
+            return {
+                Users: [
+                    {
+                        Attributes: [
+                            {
+                                Value: 'test-previewme-user-id'
+                            },
+                            {
+                                Name: 'email'
+                            }
+                        ]
+                    }
+                ]
+            };
+        });
+
+        const event = await handler(authenticationUserMigrationEvent);
+        expect(event.response.userAttributes['test-previewme-user-id']).toEqual(undefined);
+        expect(event.response.userAttributes['email']).toEqual(undefined);
+        expect(event.response.userAttributes['email_verified']).toEqual('true');
         expect(event.response.messageAction).toEqual('SUPPRESS');
         expect(event.response.finalUserStatus).toEqual('CONFIRMED');
     });
