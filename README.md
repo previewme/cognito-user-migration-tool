@@ -1,7 +1,7 @@
-# cognito-user-migration-tool 
+# cognito-user-migration-tool
 
-Lambda function which automatically migrates a user from the current user pool to a new user pool when the user tries to log in or tries to replace their password
-
+Lambda function which automatically migrates a user from the current user pool to a new user pool when the user tries to
+log in or tries to replace their password
 
 ## Configuration
 
@@ -9,10 +9,10 @@ Lambda function which automatically migrates a user from the current user pool t
 
 | Environment Variable | Description | Required |
 | --- | --- | --- |
-| OLD_USER_POOL_ID | ID of the user's current user pool | Yes |
+| SOURCE_USER_POOL_ID | The ID of the source user's user pool | Yes |
 | ROLE_TO_ASSUME_ARN | Name of the role to assume to access the current user | Yes |
 | ROLE_SESSION_NAME | Name of the role session | Yes |
-| OLD_REGION | Current Region of the current user | Yes |
+| SOURCE_REGION | Current AWS region of the source user pool | Yes |
 | ATTRIBUTES_TO_MIGRATE | Attributes that need to be transferred | No |
 
 ## Build

@@ -21,12 +21,12 @@ async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | 
     }
 
     const params = {
-        UserPoolId: process.env.OLD_USER_POOL_ID,
+        UserPoolId: process.env.SOURCE_USER_POOL_ID,
         Filter: `email = "${event.userName}"`
     };
 
     const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({
-        region: process.env.OLD_REGION,
+        region: process.env.SOURCE_REGION,
         credentials: {
             accessKeyId: assumeRole.Credentials.AccessKeyId,
             secretAccessKey: assumeRole.Credentials.SecretAccessKey,
