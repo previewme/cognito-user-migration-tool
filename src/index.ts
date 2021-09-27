@@ -3,7 +3,7 @@ import { CognitoIdentityProviderClient, ListUsersCommand, UserType } from '@aws-
 import { AssumeRoleCommand, AssumeRoleResponse, STSClient } from '@aws-sdk/client-sts';
 
 async function getSecurityToken(): Promise<AssumeRoleResponse> {
-    const stsClient = new STSClient({ region: process.env.NEW_REGION });
+    const stsClient = new STSClient({ region: process.env.AWS_REGION });
 
     const params = {
         RoleArn: process.env.ROLE_TO_ASSUME_ARN,

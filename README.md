@@ -13,7 +13,6 @@ Lambda function which automatically migrates a user from the current user pool t
 | ROLE_TO_ASSUME_ARN | Name of the role to assume to access the current user | Yes |
 | ROLE_SESSION_NAME | Name of the role session | Yes |
 | OLD_REGION | Current Region of the current user | Yes |
-| NEW_REGION | New region of the current user | Yes |
 | ATTRIBUTES_TO_MIGRATE | Attributes that need to be transferred | No |
 
 ## Build
