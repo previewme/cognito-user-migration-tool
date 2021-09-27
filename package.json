@@ -1,11 +1,11 @@
 {
-  "name": "typescript-template",
+  "name": "cognito-user-migration-tool",
   "version": "1.0.0",
   "repository": {
     "type": "git",
-    "url": "git@github.com:previewme/lambda-typescript.git"
+    "url": "git@github.com:previewme/cognito-user-migration-tool.git"
   },
-  "description": "Template for creating typescript lambda functions",
+  "description": "Migrates users from one AWS Cognito pool to another",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
