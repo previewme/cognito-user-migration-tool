@@ -25,7 +25,15 @@ async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | 
         Filter: `email = "${event.userName}"`
     };
 
-    const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({ region: process.env.OLD_REGION });
+    const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({
+        region: process.env.OLD_REGION,
+        credentials: {
+            accessKeyId: assumeRole.Credentials.AccessKeyId ? assumeRole.Credentials.AccessKeyId : '',
+            secretAccessKey: assumeRole.Credentials.SecretAccessKey ? assumeRole.Credentials.SecretAccessKey : '',
+            sessionToken: assumeRole.Credentials.SessionToken,
+            expiration: assumeRole.Credentials.Expiration
+        }
+    });
     const listUserCommand = new ListUsersCommand(params);
     const usersByEmail = await cognitoIdentityProviderClient.send(listUserCommand);
     return usersByEmail.Users && usersByEmail.Users.length > 0 ? usersByEmail.Users[0] : undefined;
