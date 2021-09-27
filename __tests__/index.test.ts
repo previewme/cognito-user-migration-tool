@@ -38,7 +38,10 @@ describe('Test migrating user', () => {
 
         mockSendAssumeRoleCommand = jest.fn(() => {
             return {
-                Credentials: 'mock-credentials'
+                Credentials: {
+                    AccessKeyId: 'accessKeyId',
+                    SecretAccessKey: 'secretAccessKey'
+                }
             };
         });
 
@@ -62,7 +65,46 @@ describe('Test migrating user', () => {
         });
     });
 
-    test('Throw error when role cannot be assumed', async () => {
+    test('Throw error when role cannot be assumed due to AccessKeyId and SecretAccessKey being undefined', async () => {
+        mockSendAssumeRoleCommand = jest.fn(() => {
+            return {
+                Credentials: {
+                    AccessKeyId: undefined,
+                    SecretAccessKey: undefined
+                }
+            };
+        });
+
+        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Could not assume role');
+    });
+
+    test('Throw error when role cannot be assumed due to AccessKeyId existing and SecretAccessKey being undefined', async () => {
+        mockSendAssumeRoleCommand = jest.fn(() => {
+            return {
+                Credentials: {
+                    AccessKeyId: 'accessKeyId',
+                    SecretAccessKey: undefined
+                }
+            };
+        });
+
+        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Could not assume role');
+    });
+
+    test('Throw error when role cannot be assumed due to AccessKeyId being undefined and SecretAccessKey existing', async () => {
+        mockSendAssumeRoleCommand = jest.fn(() => {
+            return {
+                Credentials: {
+                    AccessKeyId: undefined,
+                    SecretAccessKey: 'secretAccessKey'
+                }
+            };
+        });
+
+        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Could not assume role');
+    });
+
+    test('Throw error when role cannot be assumed due to credentials not existing', async () => {
         mockSendAssumeRoleCommand = jest.fn(() => {
             return {
                 Credentials: undefined

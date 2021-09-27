@@ -16,7 +16,7 @@ async function getSecurityToken(): Promise<AssumeRoleResponse> {
 
 async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | undefined> {
     const assumeRole = await getSecurityToken();
-    if (assumeRole.Credentials === undefined) {
+    if (assumeRole.Credentials === undefined || !(assumeRole.Credentials.AccessKeyId && assumeRole.Credentials.SecretAccessKey)) {
         throw Error('Could not assume role');
     }
 
@@ -28,12 +28,11 @@ async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | 
     const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({
         region: process.env.OLD_REGION,
         credentials: {
-            accessKeyId: assumeRole.Credentials.AccessKeyId ? assumeRole.Credentials.AccessKeyId : '',
-            secretAccessKey: assumeRole.Credentials.SecretAccessKey ? assumeRole.Credentials.SecretAccessKey : '',
-            sessionToken: assumeRole.Credentials.SessionToken,
-            expiration: assumeRole.Credentials.Expiration
+            accessKeyId: assumeRole.Credentials.AccessKeyId,
+            secretAccessKey: assumeRole.Credentials.SecretAccessKey
         }
     });
+
     const listUserCommand = new ListUsersCommand(params);
     const usersByEmail = await cognitoIdentityProviderClient.send(listUserCommand);
     return usersByEmail.Users && usersByEmail.Users.length > 0 ? usersByEmail.Users[0] : undefined;
