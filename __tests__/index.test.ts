@@ -6,6 +6,18 @@ import { UserMigrationTriggerEvent } from 'aws-lambda';
 const authenticationUserMigrationEvent: UserMigrationTriggerEvent = userMigrationAuthenticationEvent as UserMigrationTriggerEvent;
 const forgotPasswordUserMigrationEvent: UserMigrationTriggerEvent = userMigrationForgotPasswordEvent as UserMigrationTriggerEvent;
 let mockSendListUsersCommand = jest.fn();
+let mockSendAssumeRoleCommand = jest.fn();
+
+jest.mock('@aws-sdk/client-sts', () => {
+    return {
+        STSClient: jest.fn(() => {
+            return { send: mockSendAssumeRoleCommand };
+        }),
+        AssumeRoleCommand: jest.fn(() => {
+            return {};
+        })
+    };
+});
 
 jest.mock('@aws-sdk/client-cognito-identity-provider', () => {
     return {
@@ -22,7 +34,14 @@ describe('Test migrating user', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         jest.resetModules();
-        process.env.ATTRIBUTES_TO_MIGRATES = 'custom:previewme_user_id,email';
+        process.env.ATTRIBUTES_TO_MIGRATE = 'custom:previewme_user_id,email';
+
+        mockSendAssumeRoleCommand = jest.fn(() => {
+            return {
+                Credentials: 'mock-credentials'
+            };
+        });
+
         mockSendListUsersCommand = jest.fn(() => {
             return {
                 Users: [
@@ -41,6 +60,16 @@ describe('Test migrating user', () => {
                 ]
             };
         });
+    });
+
+    test('Throw error when role cannot be assumed', async () => {
+        mockSendAssumeRoleCommand = jest.fn(() => {
+            return {
+                Credentials: undefined
+            };
+        });
+
+        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Could not assume role');
     });
 
     test('Allow old user attributes to be added to a new user on authentication', async () => {
@@ -72,7 +101,22 @@ describe('Test migrating user', () => {
     });
 
     test('No attributes to migrate', async () => {
+        delete process.env.ATTRIBUTES_TO_MIGRATE;
+        const event = await handler(authenticationUserMigrationEvent);
+        expect(event.response.userAttributes['custom:previewme_user_id']).toEqual(undefined);
+        expect(event.response.userAttributes['email']).toEqual(undefined);
+        expect(event.response.userAttributes['email_verified']).toEqual('true');
+        expect(event.response.messageAction).toEqual('SUPPRESS');
+        expect(event.response.finalUserStatus).toEqual('CONFIRMED');
+    });
+
+    test('No attributes to migrate', async () => {
         delete process.env.ATTRIBUTES_TO_MIGRATES;
+        mockSendListUsersCommand = jest.fn(() => {
+            return {
+                Users: [{}]
+            };
+        });
         const event = await handler(authenticationUserMigrationEvent);
         expect(event.response.userAttributes['email_verified']).toEqual('true');
         expect(event.response.messageAction).toEqual('SUPPRESS');

@@ -1,7 +1,25 @@
 import { UserMigrationTriggerEvent } from 'aws-lambda';
 import { CognitoIdentityProviderClient, ListUsersCommand, UserType } from '@aws-sdk/client-cognito-identity-provider';
+import { AssumeRoleCommand, AssumeRoleResponse, STSClient } from '@aws-sdk/client-sts';
+
+async function getSecurityToken(): Promise<AssumeRoleResponse> {
+    const stsClient = new STSClient({ region: process.env.NEW_REGION });
+
+    const params = {
+        RoleArn: process.env.ROLE_TO_ASSUME_ARN,
+        RoleSessionName: process.env.ROLE_SESSION_NAME
+    };
+
+    const assumeRoleCommand = new AssumeRoleCommand(params);
+    return await stsClient.send(assumeRoleCommand);
+}
 
 async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | undefined> {
+    const assumeRole = await getSecurityToken();
+    if (assumeRole.Credentials === undefined) {
+        throw Error('Could not assume role');
+    }
+
     const params = {
         UserPoolId: process.env.OLD_USER_POOL_ID,
         Filter: `email = "${event.userName}"`
@@ -15,7 +33,7 @@ async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | 
 
 function generateUserAttributes(oldUser: UserType) {
     const userAttributesMap = new Map();
-    const attributesToMigrate = process.env.ATTRIBUTES_TO_MIGRATES;
+    const attributesToMigrate = process.env.ATTRIBUTES_TO_MIGRATE;
 
     if (oldUser.Attributes && attributesToMigrate) {
         const attributesToMigrateArray = attributesToMigrate.split(',');
