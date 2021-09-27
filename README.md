@@ -10,10 +10,11 @@ Lambda function which automatically migrates a user from the current user pool t
 | Environment Variable | Description | Required |
 | --- | --- | --- |
 | OLD_USER_POOL_ID | ID of the user's current user pool | Yes |
-| OLD_AWS_ACCOUNT_ID | ID of the user's current aws account | Yes |
-| OLD_ASSUME_ROLE_NAME | Name of the role to assume to access the current user | Yes |
-| OLD_REGION | Region of the user's current aws account | Yes |
-| NEW_REGION | Region of the user's new aws account | Yes |
+| ROLE_TO_ASSUME_ARN | Name of the role to assume to access the current user | Yes |
+| ROLE_SESSION_NAME | Name of the role session | Yes |
+| OLD_REGION | Current Region of the current user | Yes |
+| NEW_REGION | New region of the current user | Yes |
+| ATTRIBUTES_TO_MIGRATE | Attributes that need to be transferred | No |
 
 ## Build
 
