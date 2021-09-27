@@ -29,7 +29,8 @@ async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | 
         region: process.env.OLD_REGION,
         credentials: {
             accessKeyId: assumeRole.Credentials.AccessKeyId,
-            secretAccessKey: assumeRole.Credentials.SecretAccessKey
+            secretAccessKey: assumeRole.Credentials.SecretAccessKey,
+            sessionToken: assumeRole.Credentials.SessionToken
         }
     });
 
