@@ -1,26 +1,24 @@
 {
-    "version": "string",
+    "version": "1",
     "triggerSource": "UserMigration_Authentication",
-    "region": "AWSRegion",
-    "userPoolId": "string",
-    "userName": "string",
+    "region": "us-east-1",
+    "userPoolId": "us-east-1_id",
+    "userName": "test@example.com",
     "callerContext": {
-        "awsSdkVersion": "string",
-        "clientId": "string"
+        "awsSdkVersion": "aws-sdk-unknown-unknown",
+        "clientId": "CLIENT_ID"
     },
-    "request": {
-        "password": "string",
-        "validationData": {
-            "string": "string"
-        },
-        "clientMetadata": {
-            "string": "string"
+    "request": { "password": "HIDDEN_FOR_SECURITY_REASONS", "validationData": {}, "userAttributes": null },
+        "response": {
+            "userAttributes": {
+                "custom:previewme_user_id": "EXAMPLE",
+                "email": "test@example.com",
+                "email_verified": "true"
+            },
+            "forceAliasCreation": false,
+            "finalUserStatus": "CONFIRMED",
+            "messageAction": "SUPPRESS",
+            "desiredDeliveryMediums": ["EMAIL"]
         }
-    },
-    "response": {
-        "userAttributes": {},
-        "messageAction": "RESEND",
-        "desiredDeliveryMediums": [],
-        "forceAliasCreation": true
     }
-}
+

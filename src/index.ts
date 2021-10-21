@@ -62,9 +62,9 @@ export async function handler(event: UserMigrationTriggerEvent): Promise<UserMig
     console.info('Incoming event', incomingEvent);
 
     const oldUser = await getOldUser(event);
-    console.info('Old user', oldUser);
 
     if (oldUser) {
+        console.info('Old user', oldUser);
         event.response.userAttributes = generateUserAttributes(oldUser);
         event.response.messageAction = 'SUPPRESS';
     } else {
