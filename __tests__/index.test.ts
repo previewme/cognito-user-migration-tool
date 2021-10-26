@@ -129,7 +129,7 @@ describe('Test migrating user', () => {
         expect(event.response.userAttributes['email']).toEqual('test-email');
         expect(event.response.userAttributes['email_verified']).toEqual('true');
         expect(event.response.messageAction).toEqual('SUPPRESS');
-        expect(event.response.finalUserStatus).toEqual(undefined);
+        expect(event.response.finalUserStatus).toEqual('CONFIRMED');
     });
 
     test('Throw error when old user doesnt exist', async () => {
