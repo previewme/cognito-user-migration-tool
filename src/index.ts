@@ -57,9 +57,14 @@ function generateUserAttributes(oldUser: UserType) {
 }
 
 export async function handler(event: UserMigrationTriggerEvent): Promise<UserMigrationTriggerEvent> {
+    const incomingEvent = event;
+    incomingEvent.request.password = 'HIDDEN_FOR_SECURITY_REASONS';
+    console.info('Incoming event', incomingEvent);
+
     const oldUser = await getOldUser(event);
 
     if (oldUser) {
+        console.info('Old user', oldUser);
         event.response.userAttributes = generateUserAttributes(oldUser);
         event.response.messageAction = 'SUPPRESS';
     } else {
@@ -69,6 +74,10 @@ export async function handler(event: UserMigrationTriggerEvent): Promise<UserMig
     if (event.triggerSource === 'UserMigration_Authentication') {
         event.response.finalUserStatus = 'CONFIRMED';
     }
+
+    const outgoingEvent = event;
+    outgoingEvent.request.password = 'HIDDEN_FOR_SECURITY_REASONS';
+    console.info('Outgoing event', outgoingEvent);
 
     return event;
 }
