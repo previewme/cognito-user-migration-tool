@@ -5,8 +5,8 @@ import { UserMigrationTriggerEvent } from 'aws-lambda';
 
 const authenticationUserMigrationEvent: UserMigrationTriggerEvent = userMigrationAuthenticationEvent as UserMigrationTriggerEvent;
 const forgotPasswordUserMigrationEvent: UserMigrationTriggerEvent = userMigrationForgotPasswordEvent as UserMigrationTriggerEvent;
-let mockSendListUsersCommand = jest.fn();
 let mockSendAssumeRoleCommand = jest.fn();
+const mockSend = jest.fn();
 
 jest.mock('@aws-sdk/client-sts', () => {
     return {
@@ -22,9 +22,12 @@ jest.mock('@aws-sdk/client-sts', () => {
 jest.mock('@aws-sdk/client-cognito-identity-provider', () => {
     return {
         CognitoIdentityProviderClient: jest.fn(() => {
-            return { send: mockSendListUsersCommand };
+            return { send: mockSend };
         }),
-        ListUsersCommand: jest.fn(() => {
+        AdminInitiateAuthCommand: jest.fn(() => {
+            return true;
+        }),
+        AdminGetUserCommand: jest.fn(() => {
             return {};
         })
     };
@@ -42,25 +45,6 @@ describe('Test migrating user', () => {
                     AccessKeyId: 'accessKeyId',
                     SecretAccessKey: 'secretAccessKey'
                 }
-            };
-        });
-
-        mockSendListUsersCommand = jest.fn(() => {
-            return {
-                Users: [
-                    {
-                        Attributes: [
-                            {
-                                Name: 'custom:previewme_user_id',
-                                Value: 'test-previewme-user-id'
-                            },
-                            {
-                                Name: 'email',
-                                Value: 'test-email'
-                            }
-                        ]
-                    }
-                ]
             };
         });
     });
@@ -115,6 +99,22 @@ describe('Test migrating user', () => {
     });
 
     test('Allow old user attributes to be added to a new user on authentication', async () => {
+        mockSend.mockResolvedValueOnce({ AuthenticationResult: 'Success' }).mockResolvedValue({
+            Enabled: true,
+            UserAttributes: [
+                {
+                    Name: 'custom:previewme_user_id',
+                    Value: 'test-previewme-user-id'
+                },
+                {
+                    Name: 'email',
+                    Value: 'test-email'
+                }
+            ],
+            Username: 'test@jest.com',
+            UserStatus: 'CONFIRMED'
+        });
+
         const event = await handler(authenticationUserMigrationEvent);
         expect(event.response.userAttributes['custom:previewme_user_id']).toEqual('test-previewme-user-id');
         expect(event.response.userAttributes['email']).toEqual('test-email');
@@ -124,6 +124,22 @@ describe('Test migrating user', () => {
     });
 
     test('Allow old user attributes to be added to a new user on forget password', async () => {
+        mockSend.mockResolvedValue({
+            Enabled: true,
+            UserAttributes: [
+                {
+                    Name: 'custom:previewme_user_id',
+                    Value: 'test-previewme-user-id'
+                },
+                {
+                    Name: 'email',
+                    Value: 'test-email'
+                }
+            ],
+            Username: 'test@jest.com',
+            UserStatus: 'CONFIRMED'
+        });
+
         const event = await handler(forgotPasswordUserMigrationEvent);
         expect(event.response.userAttributes['custom:previewme_user_id']).toEqual('test-previewme-user-id');
         expect(event.response.userAttributes['email']).toEqual('test-email');
@@ -132,18 +148,18 @@ describe('Test migrating user', () => {
         expect(event.response.finalUserStatus).toEqual('CONFIRMED');
     });
 
-    test('Throw error when old user doesnt exist', async () => {
-        mockSendListUsersCommand = jest.fn(() => {
-            return {
-                Users: []
-            };
-        });
-
-        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Bad password');
+    test('Throw error when user doesnt exist', async () => {
+        mockSend.mockResolvedValue({});
+        await expect(handler(authenticationUserMigrationEvent)).rejects.toThrow('Incorrect email or password.');
     });
 
     test('No attributes to migrate', async () => {
-        delete process.env.ATTRIBUTES_TO_MIGRATE;
+        delete process.env.ATTRIBUTES_TO_MIGRATES;
+        mockSend.mockResolvedValueOnce({ AuthenticationResult: 'Success' }).mockResolvedValue({
+            Enabled: true,
+            Username: 'test@jest.com',
+            UserStatus: 'CONFIRMED'
+        });
         const event = await handler(authenticationUserMigrationEvent);
         expect(event.response.userAttributes['custom:previewme_user_id']).toEqual(undefined);
         expect(event.response.userAttributes['email']).toEqual(undefined);
@@ -152,37 +168,21 @@ describe('Test migrating user', () => {
         expect(event.response.finalUserStatus).toEqual('CONFIRMED');
     });
 
-    test('No attributes to migrate', async () => {
-        delete process.env.ATTRIBUTES_TO_MIGRATES;
-        mockSendListUsersCommand = jest.fn(() => {
-            return {
-                Users: [{}]
-            };
-        });
-        const event = await handler(authenticationUserMigrationEvent);
-        expect(event.response.userAttributes['email_verified']).toEqual('true');
-        expect(event.response.messageAction).toEqual('SUPPRESS');
-        expect(event.response.finalUserStatus).toEqual('CONFIRMED');
-    });
-
     test('Only transfer intended attributes', async () => {
-        mockSendListUsersCommand = jest.fn(() => {
-            return {
-                Users: [
-                    {
-                        Attributes: [
-                            {
-                                Name: 'invalid-name',
-                                Value: 'test-previewme-user-id'
-                            },
-                            {
-                                Name: 'email',
-                                Value: 'test-email'
-                            }
-                        ]
-                    }
-                ]
-            };
+        mockSend.mockResolvedValueOnce({ AuthenticationResult: 'Success' }).mockResolvedValue({
+            Enabled: true,
+            UserAttributes: [
+                {
+                    Name: 'invalid-name',
+                    Value: 'test-previewme-user-id'
+                },
+                {
+                    Name: 'email',
+                    Value: 'test-email'
+                }
+            ],
+            Username: 'test@jest.com',
+            UserStatus: 'CONFIRMED'
         });
 
         const event = await handler(authenticationUserMigrationEvent);
@@ -194,21 +194,18 @@ describe('Test migrating user', () => {
     });
 
     test('Only transfer attributes if the format is correct', async () => {
-        mockSendListUsersCommand = jest.fn(() => {
-            return {
-                Users: [
-                    {
-                        Attributes: [
-                            {
-                                Value: 'test-previewme-user-id'
-                            },
-                            {
-                                Name: 'email'
-                            }
-                        ]
-                    }
-                ]
-            };
+        mockSend.mockResolvedValueOnce({ AuthenticationResult: 'Success' }).mockResolvedValue({
+            Enabled: true,
+            UserAttributes: [
+                {
+                    Value: 'test-previewme-user-id'
+                },
+                {
+                    Name: 'email'
+                }
+            ],
+            Username: 'test@jest.com',
+            UserStatus: 'CONFIRMED'
         });
 
         const event = await handler(authenticationUserMigrationEvent);
@@ -217,5 +214,10 @@ describe('Test migrating user', () => {
         expect(event.response.userAttributes['email_verified']).toEqual('true');
         expect(event.response.messageAction).toEqual('SUPPRESS');
         expect(event.response.finalUserStatus).toEqual('CONFIRMED');
+    });
+
+    test('Throw error when cannot retrieve user for forgot password', async () => {
+        mockSend.mockResolvedValue(undefined);
+        await expect(handler(forgotPasswordUserMigrationEvent)).rejects.toThrow('Incorrect email or password.');
     });
 });

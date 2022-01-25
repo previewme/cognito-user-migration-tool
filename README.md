@@ -9,6 +9,7 @@ log in or tries to replace their password
 
 | Environment Variable | Description | Required |
 | --- | --- | --- |
+| SOURCE_CLIENT_ID | The ID of the source user's client id for authentication | Yes |
 | SOURCE_USER_POOL_ID | The ID of the source user's user pool | Yes |
 | ROLE_TO_ASSUME_ARN | Name of the role to assume to access the current user | Yes |
 | ROLE_SESSION_NAME | Name of the role session | Yes |

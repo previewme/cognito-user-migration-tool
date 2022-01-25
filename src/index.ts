@@ -1,5 +1,10 @@
 import { UserMigrationTriggerEvent } from 'aws-lambda';
-import { CognitoIdentityProviderClient, ListUsersCommand, UserType } from '@aws-sdk/client-cognito-identity-provider';
+import {
+    AdminGetUserCommand,
+    AdminGetUserCommandOutput,
+    AdminInitiateAuthCommand,
+    CognitoIdentityProviderClient
+} from '@aws-sdk/client-cognito-identity-provider';
 import { AssumeRoleCommand, AssumeRoleResponse, STSClient } from '@aws-sdk/client-sts';
 
 async function getSecurityToken(): Promise<AssumeRoleResponse> {
@@ -14,17 +19,11 @@ async function getSecurityToken(): Promise<AssumeRoleResponse> {
     return await stsClient.send(assumeRoleCommand);
 }
 
-async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | undefined> {
+async function authenticateUser(username: string, password: string): Promise<boolean> {
     const assumeRole = await getSecurityToken();
     if (assumeRole.Credentials === undefined || !(assumeRole.Credentials.AccessKeyId && assumeRole.Credentials.SecretAccessKey)) {
         throw Error('Could not assume role');
     }
-
-    const params = {
-        UserPoolId: process.env.SOURCE_USER_POOL_ID,
-        Filter: `email = "${event.userName}"`
-    };
-
     const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({
         region: process.env.SOURCE_REGION,
         credentials: {
@@ -34,18 +33,47 @@ async function getOldUser(event: UserMigrationTriggerEvent): Promise<UserType | 
         }
     });
 
-    const listUserCommand = new ListUsersCommand(params);
-    const usersByEmail = await cognitoIdentityProviderClient.send(listUserCommand);
-    return usersByEmail.Users && usersByEmail.Users.length > 0 ? usersByEmail.Users[0] : undefined;
+    const command = new AdminInitiateAuthCommand({
+        AuthFlow: 'ADMIN_USER_PASSWORD_AUTH',
+        AuthParameters: {
+            PASSWORD: password,
+            USERNAME: username
+        },
+        ClientId: process.env.SOURCE_CLIENT_ID,
+        UserPoolId: process.env.SOURCE_USER_POOL_ID
+    });
+    const response = await cognitoIdentityProviderClient.send(command);
+    return !!response.AuthenticationResult;
 }
 
-function generateUserAttributes(oldUser: UserType) {
+async function getUser(username: string): Promise<AdminGetUserCommandOutput> {
+    const assumeRole = await getSecurityToken();
+    if (assumeRole.Credentials === undefined || !(assumeRole.Credentials.AccessKeyId && assumeRole.Credentials.SecretAccessKey)) {
+        throw Error('Could not assume role');
+    }
+    const cognitoIdentityProviderClient = new CognitoIdentityProviderClient({
+        region: process.env.SOURCE_REGION,
+        credentials: {
+            accessKeyId: assumeRole.Credentials.AccessKeyId,
+            secretAccessKey: assumeRole.Credentials.SecretAccessKey,
+            sessionToken: assumeRole.Credentials.SessionToken
+        }
+    });
+
+    const getUserCommand = new AdminGetUserCommand({
+        UserPoolId: process.env.SOURCE_USER_POOL_ID,
+        Username: username
+    });
+    return await cognitoIdentityProviderClient.send(getUserCommand);
+}
+
+function generateUserAttributes(username: AdminGetUserCommandOutput) {
     const userAttributesMap = new Map();
     const attributesToMigrate = process.env.ATTRIBUTES_TO_MIGRATE;
 
-    if (oldUser.Attributes && attributesToMigrate) {
+    if (username.UserAttributes && attributesToMigrate) {
         const attributesToMigrateArray = attributesToMigrate.split(',');
-        oldUser.Attributes.forEach((userAttribute) => {
+        username.UserAttributes.forEach((userAttribute) => {
             if (userAttribute.Name && userAttribute.Value && attributesToMigrateArray.includes(userAttribute.Name)) {
                 userAttributesMap.set(userAttribute.Name, userAttribute.Value);
             }
@@ -57,29 +85,29 @@ function generateUserAttributes(oldUser: UserType) {
 }
 
 export async function handler(event: UserMigrationTriggerEvent): Promise<UserMigrationTriggerEvent> {
-    const incomingEvent = event;
-    incomingEvent.request.password = 'HIDDEN_FOR_SECURITY_REASONS';
-    console.info('Incoming event', incomingEvent);
-
-    const oldUser = await getOldUser(event);
-
-    if (oldUser) {
-        console.info('Old user', oldUser);
-        event.response.userAttributes = generateUserAttributes(oldUser);
-        event.response.messageAction = 'SUPPRESS';
-    } else {
-        throw Error('Bad password');
-    }
-
     if (event.triggerSource === 'UserMigration_Authentication') {
-        event.response.finalUserStatus = 'CONFIRMED';
+        const authenticated = await authenticateUser(event.userName, event.request.password);
+        const user = await getUser(event.userName);
+        if (authenticated && user) {
+            event.response.userAttributes = generateUserAttributes(user);
+            event.response.finalUserStatus = 'CONFIRMED';
+            event.response.messageAction = 'SUPPRESS';
+            return event;
+        } else {
+            throw new Error('Incorrect email or password.');
+        }
+    } else if (event.triggerSource === 'UserMigration_ForgotPassword') {
+        const user = await getUser(event.userName);
+        if (user) {
+            event.response.userAttributes = generateUserAttributes(user);
+            event.response.messageAction = 'SUPPRESS';
+            return event;
+        } else {
+            throw new Error('Incorrect email or password.');
+        }
     }
-
-    const outgoingEvent = event;
-    outgoingEvent.request.password = 'HIDDEN_FOR_SECURITY_REASONS';
-    console.info('Outgoing event', outgoingEvent);
-
-    return event;
+    console.error('Unknown trigger source');
+    throw new Error('Please contact support');
 }
 
 exports.handler = handler;
